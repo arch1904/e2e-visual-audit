@@ -44,12 +44,44 @@ If any prerequisite is missing, tell the user exactly what's needed and stop. Do
 
 ## Step 1: Verify Prerequisites
 
-1. Call `list_pages` — if this fails, Chrome DevTools MCP is not connected. Tell the user to start it.
+1. Call `list_pages` — if this fails or the tool is not found, Chrome DevTools MCP is not connected. Follow the **Chrome DevTools Setup** procedure below.
 2. Detect dev server URL from project config. Check `package.json` `scripts.dev` for the port. If unclear, ask.
 3. Call `navigate_page` to the dev server URL.
 4. Call `take_snapshot` to verify the page loaded. Check the a11y tree for login forms or error states.
 5. **If login is required**, follow the Auth Gate procedure below.
 6. If all checks pass, proceed.
+
+### Chrome DevTools Setup — MCP Not Connected
+
+If `list_pages` fails or the tool doesn't exist, the Chrome DevTools MCP server is not installed or not running. Present this to the user:
+
+> Chrome DevTools MCP is required for this skill but doesn't appear to be connected. Here's how to set it up:
+>
+> **1. Install the MCP server:**
+> ```bash
+> npx @anthropic-ai/claude-code mcp add chrome-devtools -- npx @anthropic-ai/chrome-devtools-mcp@latest
+> ```
+>
+> **2. Open Chrome** — the MCP server connects to an open Chrome instance via the DevTools Protocol. Chrome must be running.
+>
+> **3. Verify the connection** — restart Claude Code (or run `/mcp` to check server status). You should see `chrome-devtools` listed as connected.
+>
+> **Alternative — manual setup:**
+> Add this to your Claude Code MCP settings (`.claude/settings.json` or via Settings > MCP Servers):
+> ```json
+> {
+>   "mcpServers": {
+>     "chrome-devtools": {
+>       "command": "npx",
+>       "args": ["@anthropic-ai/chrome-devtools-mcp@latest"]
+>     }
+>   }
+> }
+> ```
+>
+> Once connected, re-run `/e2e-audit`.
+
+After presenting the setup instructions, **stop the audit**. Do not proceed without Chrome DevTools MCP — every subsequent step depends on it.
 
 ### Auth Gate — Handling Login Screens
 
@@ -260,7 +292,7 @@ So they can browse screenshots in their file manager.
 ## Troubleshooting
 
 ### Chrome DevTools MCP not connected
-`list_pages` fails or returns no pages. Tell the user to start Chrome DevTools MCP and verify it appears in their MCP server list. Common fix: restart the MCP server, ensure Chrome is open.
+`list_pages` fails or the tool doesn't exist. Follow the **Chrome DevTools Setup** procedure in Step 1 — it provides the full install command and manual config. Common issues: MCP server not installed, Chrome not open, server needs restart after install.
 
 ### Page loads but shows login screen
 Follow the **Auth Gate** procedure in Step 1. Present all four options to the user (manual login, test credentials, skip auth routes, inject token). Do not silently skip the route or abort the audit — always give the user a choice.
