@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "e2e-visual-audit-marketplace",
+  "version": "1.0.0",
+  "description": "Visually test recent git changes in the browser using Chrome DevTools MCP",
+  "owner": {
+    "name": "arch1904"
+  },
+  "plugins": [
+    {
+      "name": "e2e-visual-audit",
+      "description": "Analyze recent commits, navigate affected UI routes in Chrome, take screenshots, check console logs and network requests, and produce a structured issues report. Works with any web framework.",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/e2e-visual-audit"],
+      "version": "1.0.0",
+      "category": "testing"
+    }
+  ]
+}
