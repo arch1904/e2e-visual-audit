@@ -24,16 +24,16 @@ Analyze the last N git commits, map changed files to UI routes, then use Chrome 
 
 ## Prerequisites
 
-- **Chrome DevTools MCP** connected (the skill calls `list_pages`, `navigate_page`, `take_screenshot`, `take_snapshot`, `click`, `fill`, `list_console_messages`, `list_network_requests`, `resize_page`)
-- **Dev server running** — detect the URL from project config (`package.json` scripts, vite/next/nuxt config) or ask the user
-- **Authenticated session** — if the app requires login, the user must already be logged in within Chrome
+- **Chrome DevTools MCP** — the skill guides setup if not connected
+- **Dev server** — the skill builds and starts it automatically (or detects an existing one)
+- **Authenticated session** — if the app requires login, the skill walks the user through options
 
-If any prerequisite is missing, tell the user exactly what's needed and stop. Do not proceed with partial setup.
+The skill handles all three automatically in Step 1. No manual setup required from the user before running `/e2e-audit`.
 
 ## Workflow Overview
 
 ```
-1. Verify prerequisites (Chrome MCP, dev server, auth)
+1. Verify prerequisites (Chrome MCP, build + start dev server, auth)
 2. Analyze last N commits (git log + diff)
 3. Map changed files → UI routes (framework-aware)
 4. Present test plan → user approves
@@ -45,11 +45,47 @@ If any prerequisite is missing, tell the user exactly what's needed and stop. Do
 ## Step 1: Verify Prerequisites
 
 1. Call `list_pages` — if this fails or the tool is not found, Chrome DevTools MCP is not connected. Follow the **Chrome DevTools Setup** procedure below.
-2. Detect dev server URL from project config. Check `package.json` `scripts.dev` for the port. If unclear, ask.
+2. **Build and start the dev server** using the **Dev Server Setup** procedure below.
 3. Call `navigate_page` to the dev server URL.
 4. Call `take_snapshot` to verify the page loaded. Check the a11y tree for login forms or error states.
 5. **If login is required**, follow the Auth Gate procedure below.
 6. If all checks pass, proceed.
+
+### Dev Server Setup — Build and Run
+
+Always run a fresh build before testing to ensure the audit reflects the current state of the code (not stale artifacts).
+
+1. **Detect the package manager** from the project root:
+   - `pnpm-lock.yaml` → use `pnpm`
+   - `yarn.lock` → use `yarn`
+   - `bun.lockb` → use `bun`
+   - `package-lock.json` or none → use `npm`
+
+2. **Run the build** to catch compile errors before testing in the browser:
+   ```bash
+   # Use the detected package manager. Examples:
+   pnpm run build    # or npm run build, yarn build, bun run build
+   ```
+   If the build fails, report the errors to the user and stop — there's no point testing a broken build in the browser.
+
+3. **Start the dev server** in the background:
+   ```bash
+   # Run in background so it doesn't block the audit
+   pnpm run dev &    # or npm run dev, yarn dev, bun dev
+   ```
+   Run this command in the background. The dev server needs to stay running for the duration of the audit.
+
+4. **Detect the dev server URL** from the project config:
+   - Check `package.json` `scripts.dev` for port flags (`--port 5173`, `-p 3000`)
+   - Check `vite.config.*` for `server.port`
+   - Check `next.config.*` for custom port
+   - Check `nuxt.config.*` for `devServer.port`
+   - Default fallback: `http://localhost:5173` (Vite) or `http://localhost:3000` (Next.js/Nuxt)
+   - If still unclear, ask the user.
+
+5. **Wait for the server to be ready** — after starting, wait a few seconds then try `navigate_page` to the URL. If it fails, retry after 3 more seconds. If still failing after 10 seconds, tell the user the dev server didn't start and show any error output.
+
+**If the dev server is already running** (user started it manually), skip the build and start steps — just detect the URL and proceed. You can check by attempting `navigate_page` to the likely URL before trying to start a new server.
 
 ### Chrome DevTools Setup — MCP Not Connected
 
