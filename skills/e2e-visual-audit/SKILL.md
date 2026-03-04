@@ -48,8 +48,42 @@ If any prerequisite is missing, tell the user exactly what's needed and stop. Do
 2. Detect dev server URL from project config. Check `package.json` `scripts.dev` for the port. If unclear, ask.
 3. Call `navigate_page` to the dev server URL.
 4. Call `take_snapshot` to verify the page loaded. Check the a11y tree for login forms or error states.
-5. If the page shows a login screen, tell the user: "Please log in via Chrome, then re-run /e2e-audit."
+5. **If login is required**, follow the Auth Gate procedure below.
 6. If all checks pass, proceed.
+
+### Auth Gate — Handling Login Screens
+
+If the snapshot shows a login form, sign-in page, or auth redirect at any point (initial load or mid-audit when navigating to a new route):
+
+1. **Screenshot the login screen** so the user can see what you're seeing:
+   ```
+   take_screenshot(filePath: "{RUN_DIR}/_issues/auth-gate-{route-slug}.png")
+   ```
+
+2. **Present the user with options:**
+   > I've hit a login screen at `{url}`. To continue the audit, I need an authenticated session. You have a few options:
+   >
+   > **Option A — Log in manually (recommended):** Switch to the Chrome window, log in, then tell me to continue. I'll re-navigate and pick up where I left off.
+   >
+   > **Option B — Provide test credentials:** Give me a test username/password and I'll fill the login form. Only do this with throwaway test accounts, never production credentials.
+   >
+   > **Option C — Skip authenticated routes:** I'll skip all routes that require auth and only test public pages. I'll note skipped routes in the report.
+   >
+   > **Option D — Provide a session cookie or auth token:** If you can give me a cookie value or bearer token, I can inject it via `evaluate_script`.
+
+3. **Based on user's choice:**
+   - **Option A:** Wait for the user to say "continue" or "done". Then call `take_snapshot` to verify login succeeded. If still on login screen, let them know and ask again.
+   - **Option B:** Use `fill_form` or `fill` to enter credentials, then `click` the submit button. After submission, `take_snapshot` to verify login succeeded. If it fails (wrong credentials, 2FA prompt, CAPTCHA), report the failure and fall back to asking for Option A.
+   - **Option C:** Add all auth-required routes to a "skipped" list. Continue with public routes only. Note all skipped routes prominently in the report.
+   - **Option D:** Use `evaluate_script` to set the cookie or localStorage token:
+     ```
+     evaluate_script(function: "() => { document.cookie = '{name}={value}; path=/'; }")
+     // or for localStorage:
+     evaluate_script(function: "() => { localStorage.setItem('{key}', '{value}'); }")
+     ```
+     Then call `navigate_page` to reload and `take_snapshot` to verify auth.
+
+4. **If auth expires mid-audit** (navigating to a new route shows login again): Pause testing, screenshot the state, and re-run the Auth Gate procedure. Do not silently skip routes — the user should always know when auth blocks testing.
 
 ## Step 2: Analyze Recent Commits
 
@@ -229,7 +263,7 @@ So they can browse screenshots in their file manager.
 `list_pages` fails or returns no pages. Tell the user to start Chrome DevTools MCP and verify it appears in their MCP server list. Common fix: restart the MCP server, ensure Chrome is open.
 
 ### Page loads but shows login screen
-The user's auth session may have expired. Tell them to log in manually in Chrome, then re-run `/e2e-audit`. Do not attempt to fill login forms — credentials should never be handled by the skill.
+Follow the **Auth Gate** procedure in Step 1. Present all four options to the user (manual login, test credentials, skip auth routes, inject token). Do not silently skip the route or abort the audit — always give the user a choice.
 
 ### Route returns 404
 The route may require dynamic parameters that don't exist in the current DB state. Mark it as "requires setup — no test data available" in the report. Ask the user if they can navigate there manually.
